@@ -4,13 +4,14 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Legend, ReferenceLine, ComposedChart
 } from "recharts";
+import "./App.css";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
-  bg: "#080e1a", surface: "#0f1923", card: "#131f2e", border: "#1a2940",
-  accent: "#00d4ff", green: "#00e5a0", amber: "#ffb347", red: "#ff5c5c",
-  purple: "#a78bfa", pink: "#f472b6", teal: "#2dd4bf",
-  text: "#e2e8f0", muted: "#4a6080", label: "#7a96b4",
+  bg: "#f5f1ea", surface: "#fffdfa", card: "#f8f3ec", border: "#ddd2c4",
+  accent: "#1f6f78", green: "#3f7d4e", amber: "#c48a3a", red: "#b85c44",
+  purple: "#7b6ea8", pink: "#b8697d", teal: "#4d8b88",
+  text: "#1f2430", muted: "#746c63", label: "#8f857a", shadow: "0 20px 50px rgba(73, 56, 34, 0.08)",
 };
 
 // ─── GROWTH PROJECTION DATA (from 5850_Projection.docx) ──────────────────────
@@ -42,20 +43,28 @@ const FUNNEL = [
 
 // ─── SALARY ENGINE ───────────────────────────────────────────────────────────
 const DEFAULT_SAL = {
-  baseSalary: 1000000, scaleThreshold: 800, scalePct: 7,
+  baseSalary: 1000000, scaleThreshold: 800, incrementPerTranche: 70000,
   trancheSize: 1000, annualHikePct: 10, hikeEveryMonths: 12,
   mgmtHires: [
-    { at: 2500, addition: 100000, label: "Regional Managers (×3)" },
-    { at: 5000, addition: 100000, label: "Senior Mgmt Tier" },
+    { at: 2500, addition: 100000, city: "Mumbai", role: "Regional Manager" },
+    { at: 3500, addition: 100000, city: "Nagpur", role: "Regional Manager" },
+    { at: 5000, addition: 100000, city: "HQ", role: "Senior Manager" },
   ],
 };
+
+function getHireLabel(hire) {
+  if (hire.city && hire.role) return `${hire.city} · ${hire.role}`;
+  if (hire.role) return hire.role;
+  if (hire.city) return hire.city;
+  return hire.label || "Management Trigger";
+}
 
 function computeSalary(batteries, cfg) {
   let sal = cfg.baseSalary;
   if (batteries > cfg.scaleThreshold) {
     const excess = batteries - cfg.scaleThreshold;
     const tranches = Math.floor(excess / cfg.trancheSize) + (excess % cfg.trancheSize > 0 ? 1 : 0);
-    sal += tranches * (cfg.scalePct / 100) * cfg.baseSalary;
+    sal += tranches * cfg.incrementPerTranche;
   }
   for (const h of cfg.mgmtHires) if (batteries >= h.at) sal += h.addition;
   return Math.round(sal);
@@ -64,7 +73,7 @@ function computeSalary(batteries, cfg) {
 function getBreakdown(batteries, cfg) {
   const excess = Math.max(0, batteries - cfg.scaleThreshold);
   const tranches = excess > 0 ? Math.floor(excess / cfg.trancheSize) + (excess % cfg.trancheSize > 0 ? 1 : 0) : 0;
-  const scaleAdd = Math.round(tranches * (cfg.scalePct / 100) * cfg.baseSalary);
+  const scaleAdd = Math.round(tranches * cfg.incrementPerTranche);
   const mgmtFired = cfg.mgmtHires.filter(h => batteries >= h.at);
   const mgmtAdd = mgmtFired.reduce((s, h) => s + h.addition, 0);
   return { tranches, scaleAdd, mgmtAdd, mgmtFired, total: computeSalary(batteries, cfg) };
@@ -152,14 +161,14 @@ function buildGrowthRows(cfg, lp) {
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const fmt = n => n == null ? "—" : n < 0 ? `(₹${Math.abs(Math.round(n)).toLocaleString("en-IN")})` : `₹${Math.round(n).toLocaleString("en-IN")}`;
 const fmtL = n => { const a = Math.abs(n); return a >= 10000000 ? `₹${(n/10000000).toFixed(2)}Cr` : a >= 100000 ? `₹${(n/100000).toFixed(2)}L` : `₹${Math.round(n/1000)}k`; };
-const TT = { background: "#0a1222", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 11, fontFamily: "'DM Mono', monospace" };
+const TT = { background: "rgba(255, 253, 250, 0.98)", border: `1px solid ${C.border}`, borderRadius: 12, color: C.text, fontSize: 11, boxShadow: C.shadow, fontFamily: "'IBM Plex Mono', monospace" };
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function KPI({ label, value, sub, color, tiny }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${color === C.red ? C.red+"33" : C.border}`, borderRadius: 12, padding: tiny ? "11px 14px" : "14px 16px", flex: 1, minWidth: 120 }}>
-      <div style={{ color: C.muted, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: tiny ? 17 : 20, fontFamily: "'DM Mono', monospace", fontWeight: 600, color, lineHeight: 1.2 }}>{value}</div>
+    <div style={{ background: C.surface, border: `1px solid ${color === C.red ? `${C.red}33` : C.border}`, borderRadius: 18, padding: tiny ? "13px 15px" : "16px 18px", flex: 1, minWidth: 150, boxShadow: C.shadow }}>
+      <div style={{ color: C.label, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: tiny ? 17 : 22, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color, lineHeight: 1.15 }}>{value}</div>
       {sub && <div style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>{sub}</div>}
     </div>
   );
@@ -167,10 +176,10 @@ function KPI({ label, value, sub, color, tiny }) {
 
 function Hdr({ title, icon, color }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-      <span style={{ fontSize: 13 }}>{icon}</span>
-      <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: "0.08em", color: color || C.label, textTransform: "uppercase" }}>{title}</span>
-      <div style={{ flex: 1, height: 1, background: C.border, marginLeft: 6 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 16 }}>
+      <span style={{ fontSize: 12, opacity: 0.72 }}>{icon}</span>
+      <span style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontSize: 18, letterSpacing: "0.02em", color: color || C.text }}>{title}</span>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${C.border}, transparent)`, marginLeft: 2 }} />
     </div>
   );
 }
@@ -181,7 +190,7 @@ function Row({ label, value, onChange, min = 0, max, step = 1 }) {
       <label style={{ color: C.label, fontSize: 11, flex: 1, paddingRight: 6 }}>{label}</label>
       <input type="number" value={value} min={min} max={max} step={step}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        style={{ background: "#080e1a", border: `1px solid ${C.border}`, borderRadius: 6, color: C.accent, fontFamily: "'DM Mono', monospace", fontSize: 12, padding: "3px 7px", width: 100, textAlign: "right", outline: "none" }}
+        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, color: C.accent, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, padding: "6px 9px", width: 108, textAlign: "right", outline: "none" }}
       />
     </div>
   );
@@ -195,7 +204,7 @@ function CostBar({ label, value, total, color }) {
         <span style={{ color: C.label, fontSize: 10 }}>{label}</span>
         <span style={{ color: C.text, fontSize: 10, fontFamily: "'DM Mono', monospace" }}>{fmtL(Math.abs(value))}</span>
       </div>
-      <div style={{ background: C.border, borderRadius: 4, height: 5 }}>
+      <div style={{ background: "#ece4da", borderRadius: 999, height: 6 }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.35s ease" }} />
       </div>
     </div>
@@ -206,13 +215,13 @@ function SalaryBadge({ batteries, cfg }) {
   const bd = getBreakdown(batteries, cfg);
   const rows = [
     { label: "Base salary", val: cfg.baseSalary, color: C.label },
-    bd.scaleAdd > 0 && { label: `+${bd.tranches} tranche${bd.tranches !== 1 ? "s" : ""} × ${cfg.scalePct}%`, val: bd.scaleAdd, color: C.amber },
-    ...bd.mgmtFired.map(h => ({ label: h.label, val: h.addition, color: C.purple })),
+    bd.scaleAdd > 0 && { label: `+${bd.tranches} tranche${bd.tranches !== 1 ? "s" : ""} × ${fmtL(cfg.incrementPerTranche)}`, val: bd.scaleAdd, color: C.amber },
+    ...bd.mgmtFired.map(h => ({ label: getHireLabel(h), val: h.addition, color: C.purple })),
     { label: "Total / month", val: bd.total, color: C.green, bold: true },
   ].filter(Boolean);
   return (
-    <div style={{ background: "#080e1a", border: `1px solid ${C.purple}44`, borderRadius: 10, padding: "10px 12px", marginTop: 10 }}>
-      <div style={{ color: C.purple, fontSize: 9, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 7 }}>📐 Salary · {Number(batteries).toLocaleString("en-IN")} batteries</div>
+    <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderRadius: 16, padding: "12px 14px", marginTop: 10 }}>
+      <div style={{ color: C.purple, fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Salary · {Number(batteries).toLocaleString("en-IN")} batteries</div>
       {rows.map(({ label, val, color, bold }) => (
         <div key={label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
           <span style={{ color: bold ? C.text : C.muted, fontSize: 11, fontWeight: bold ? 700 : 400 }}>{label}</span>
@@ -332,7 +341,7 @@ function GrowthTab({ cfg, lp }) {
                 const hitMonth = GROWTH_PLAN.find(m => m.batteries >= h.at);
                 return hitMonth ? (
                   <ReferenceLine key={h.at} x={hitMonth.month} stroke={C.purple} strokeDasharray="4 2"
-                    label={{ value: h.label, fill: C.purple, fontSize: 8, position: "insideTopRight" }} />
+                    label={{ value: getHireLabel(h), fill: C.purple, fontSize: 8, position: "insideTopRight" }} />
                 ) : null;
               })}
               <Line type="monotone" dataKey="rev" name="Revenue" stroke={C.accent} strokeWidth={1.5} dot={false} strokeDasharray="5 2" />
@@ -459,7 +468,7 @@ function GrowthTab({ cfg, lp }) {
 function SalaryTab({ cfg, setCfg }) {
   const set = k => v => setCfg(c => ({ ...c, [k]: v }));
   const updateHire = (i, field, val) => setCfg(c => ({ ...c, mgmtHires: c.mgmtHires.map((h, idx) => idx === i ? { ...h, [field]: val } : h) }));
-  const addHire = () => setCfg(c => ({ ...c, mgmtHires: [...c.mgmtHires, { at: 3500, addition: 100000, label: "New Mgmt Tier" }] }));
+  const addHire = () => setCfg(c => ({ ...c, mgmtHires: [...c.mgmtHires, { at: 3500, addition: 100000, city: "New City", role: "Manager" }] }));
   const removeHire = i => setCfg(c => ({ ...c, mgmtHires: c.mgmtHires.filter((_, idx) => idx !== i) }));
   const curve = buildCurve(cfg);
 
@@ -479,7 +488,7 @@ function SalaryTab({ cfg, setCfg }) {
             <Hdr title="Core Parameters" icon="⚙️" />
             <Row label="Base salary (₹/month)" value={cfg.baseSalary} onChange={set("baseSalary")} step={10000} />
             <Row label="Flat threshold (batteries)" value={cfg.scaleThreshold} onChange={set("scaleThreshold")} min={1} />
-            <Row label="Scale rate (% of base / tranche)" value={cfg.scalePct} onChange={set("scalePct")} min={0} max={50} step={0.5} />
+            <Row label="Increase per 1,000 batteries (₹)" value={cfg.incrementPerTranche} onChange={set("incrementPerTranche")} min={0} step={10000} />
             <Row label="Tranche size (batteries)" value={cfg.trancheSize} onChange={set("trancheSize")} min={100} step={100} />
           </div>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "15px 17px" }}>
@@ -500,25 +509,36 @@ function SalaryTab({ cfg, setCfg }) {
             </div>
           </div>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "15px 17px" }}>
-            <Hdr title="Management Hiring Triggers" icon="🏢" color={C.purple} />
+            <Hdr title="City and Role Hiring Triggers" icon="🏢" color={C.purple} />
             <div style={{ display: "grid", gap: 9 }}>
               {cfg.mgmtHires.map((h, i) => (
                 <div key={i} style={{ background: C.card, border: `1px solid ${C.purple}44`, borderRadius: 10, padding: "9px 11px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-                    <input value={h.label} onChange={e => updateHire(i, "label", e.target.value)}
-                      style={{ background: "transparent", border: "none", color: C.purple, fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 11, outline: "none", flex: 1 }} />
+                    <div style={{ color: C.purple, fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontSize: 18, lineHeight: 1.1 }}>
+                      {getHireLabel(h)}
+                    </div>
                     <button onClick={() => removeHire(i)} style={{ background: "transparent", border: "none", color: C.red, cursor: "pointer", fontSize: 14 }}>×</button>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 9, marginBottom: 2 }}>City</div>
+                      <input value={h.city || ""} onChange={e => updateHire(i, "city", e.target.value)}
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontFamily: "'Manrope', sans-serif", fontSize: 11, padding: "6px 8px", width: "100%", outline: "none" }} />
+                    </div>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 9, marginBottom: 2 }}>Role</div>
+                      <input value={h.role || ""} onChange={e => updateHire(i, "role", e.target.value)}
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontFamily: "'Manrope', sans-serif", fontSize: 11, padding: "6px 8px", width: "100%", outline: "none" }} />
+                    </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: C.muted, fontSize: 9, marginBottom: 2 }}>At batteries</div>
                       <input type="number" value={h.at} step={100} onChange={e => updateHire(i, "at", parseFloat(e.target.value) || 0)}
-                        style={{ background: "#080e1a", border: `1px solid ${C.border}`, borderRadius: 6, color: C.accent, fontFamily: "'DM Mono', monospace", fontSize: 11, padding: "3px 6px", width: "100%", outline: "none" }} />
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, color: C.accent, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, padding: "6px 8px", width: "100%", outline: "none" }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: C.muted, fontSize: 9, marginBottom: 2 }}>Addition (₹/mo)</div>
                       <input type="number" value={h.addition} step={10000} onChange={e => updateHire(i, "addition", parseFloat(e.target.value) || 0)}
-                        style={{ background: "#080e1a", border: `1px solid ${C.border}`, borderRadius: 6, color: C.purple, fontFamily: "'DM Mono', monospace", fontSize: 11, padding: "3px 6px", width: "100%", outline: "none" }} />
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, color: C.purple, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, padding: "6px 8px", width: "100%", outline: "none" }} />
                     </div>
                   </div>
                 </div>
@@ -543,10 +563,10 @@ function SalaryTab({ cfg, setCfg }) {
                 <ReferenceLine x={cfg.scaleThreshold} stroke={C.amber} strokeDasharray="4 2" label={{ value: "Scale starts", fill: C.amber, fontSize: 8, position: "insideTopRight" }} />
                 {cfg.mgmtHires.map(h => (
                   <ReferenceLine key={h.at} x={h.at} stroke={C.purple} strokeDasharray="4 2"
-                    label={{ value: h.label, fill: C.purple, fontSize: 8, position: "insideTopRight" }} />
+                    label={{ value: getHireLabel(h), fill: C.purple, fontSize: 8, position: "insideTopRight" }} />
                 ))}
                 <Line type="stepAfter" dataKey="base" stroke={C.border} strokeWidth={1} dot={false} name="Base" />
-                <Line type="stepAfter" dataKey="scaleAdd" stroke={C.amber} strokeWidth={1.5} dot={false} name="Scale add" />
+                <Line type="stepAfter" dataKey="scaleAdd" stroke={C.amber} strokeWidth={1.5} dot={false} name="Flat scale add" />
                 <Line type="stepAfter" dataKey="mgmtAdd" stroke={C.purple} strokeWidth={1.5} dot={false} name="Mgmt add" />
                 <Line type="stepAfter" dataKey="total" stroke={C.green} strokeWidth={2.5} dot={false} name="Total" />
                 <Legend wrapperStyle={{ color: C.muted, fontSize: 11 }} />
@@ -628,36 +648,37 @@ export default function App() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-      <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <div className="app-shell" style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Manrope', sans-serif", color: C.text }}>
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
       {/* ── HEADER ── */}
-      <div style={{ padding: "16px 24px 0", borderBottom: `1px solid ${C.border}`, background: `linear-gradient(180deg,#0a1222,${C.bg})` }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 }}>
+      <div className="app-frame">
+      <div style={{ padding: "28px 32px 8px", borderBottom: `1px solid ${C.border}`, background: `linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,253,250,0.5))` }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12, gap: 24, flexWrap: "wrap" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <div style={{ display: "flex", gap: 4 }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, boxShadow: `0 0 8px ${C.accent}` }} />
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, boxShadow: `0 0 8px ${C.green}`, opacity: 0.7 }} />
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.purple, boxShadow: `0 0 8px ${C.purple}`, opacity: 0.5 }} />
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent }} />
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, opacity: 0.7 }} />
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.purple, opacity: 0.55 }} />
               </div>
-              <span style={{ color: C.label, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Ezy EV · Finance & Growth Model v4</span>
+              <span style={{ color: C.label, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" }}>Ezy EV · Finance & Growth Model v4</span>
             </div>
-            <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 700, margin: 0, letterSpacing: "-0.02em", lineHeight: 0.92 }}>
               Station Economics Dashboard
             </h1>
-            <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>
+            <div style={{ color: C.muted, fontSize: 12, marginTop: 8, maxWidth: 640, lineHeight: 1.6 }}>
               5,850 battery projection · Mar–Aug 2025 · Mumbai · Pune · Nagpur · Dynamic salary scaling
             </div>
           </div>
-          <div style={{ display: "flex", gap: 5, paddingBottom: 14 }}>
+          <div className="tab-row" style={{ display: "flex", gap: 8, paddingBottom: 10, flexWrap: "wrap" }}>
             {tabs.map(([t, label]) => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                background: tab === t ? (t === "growth" ? C.green : t === "salary" ? C.purple : C.accent) : "transparent",
-                color: tab === t ? C.bg : C.muted,
+              <button key={t} onClick={() => setTab(t)} className="tab-button" style={{
+                background: tab === t ? (t === "growth" ? C.green : t === "salary" ? C.purple : C.accent) : "rgba(255,255,255,0.6)",
+                color: tab === t ? "#fffdfa" : C.muted,
                 border: `1px solid ${tab === t ? (t === "growth" ? C.green : t === "salary" ? C.purple : C.accent) : C.border}`,
-                borderRadius: 8, padding: "5px 12px", cursor: "pointer",
-                fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 11, transition: "all 0.15s",
+                borderRadius: 999, padding: "10px 16px", cursor: "pointer",
+                fontFamily: "'Manrope', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", transition: "all 0.15s", boxShadow: tab === t ? "none" : "inset 0 1px 0 rgba(255,255,255,0.7)",
               }}>{label}</button>
             ))}
           </div>
@@ -749,7 +770,7 @@ export default function App() {
                     <YAxis tick={{ fill: C.muted, fontSize: 9 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
                     <Tooltip contentStyle={TT} formatter={(v, n) => [fmt(v), n]} labelFormatter={v => `${v} batteries`} />
                     <ReferenceLine x={sal.scaleThreshold} stroke={C.amber} strokeDasharray="3 2" strokeOpacity={0.5} />
-                    {sal.mgmtHires.map(h => <ReferenceLine key={h.at} x={h.at} stroke={C.purple} strokeDasharray="3 2" label={{ value: h.label, fill: C.purple, fontSize: 8, position: "top" }} />)}
+                    {sal.mgmtHires.map(h => <ReferenceLine key={`${h.at}-${getHireLabel(h)}`} x={h.at} stroke={C.purple} strokeDasharray="3 2" label={{ value: getHireLabel(h), fill: C.purple, fontSize: 8, position: "top" }} />)}
                     <ReferenceLine y={0} stroke={C.red} strokeDasharray="2 2" strokeOpacity={0.7} />
                     <Line type="monotone" dataKey="rev" stroke={C.accent} strokeWidth={1.5} dot={false} name="Revenue" />
                     <Line type="monotone" dataKey="net" stroke={C.green} strokeWidth={2} dot={false} name="Net Income" />
@@ -909,11 +930,12 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ padding: "10px 24px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between" }}>
+      <div style={{ padding: "14px 24px 18px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between" }}>
         <span style={{ color: C.muted, fontSize: 10 }}>
-          Growth plan: 561→5,850 batteries · Mumbai 50% · Pune 30% · Nagpur 20% · Salary: {fmtL(sal.baseSalary)} base · +{sal.scalePct}%/tranche beyond {sal.scaleThreshold} batt
+          Growth plan: 561→5,850 batteries · Mumbai 50% · Pune 30% · Nagpur 20% · Salary: {fmtL(sal.baseSalary)} base · +{fmtL(sal.incrementPerTranche)} per {sal.trancheSize.toLocaleString("en-IN")} batteries beyond {sal.scaleThreshold}
         </span>
-        <span style={{ color: C.muted, fontSize: 10, fontFamily: "'DM Mono', monospace" }}>Ezy EV · v4.0</span>
+        <span style={{ color: C.muted, fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }}>Ezy EV · v4.0</span>
+      </div>
       </div>
     </div>
   );
